@@ -59,6 +59,7 @@ export class HeartRateMonitor {
   }
 
   private readonly onDisconnected = (): void => {
+    this.device.removeEventListener('gattserverdisconnected', this.onDisconnected)
     this.handlers.log('Heart rate monitor disconnected')
     this.handlers.onDisconnect()
   }

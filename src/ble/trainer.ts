@@ -257,6 +257,7 @@ export class Trainer {
   }
 
   private readonly onDisconnected = (): void => {
+    this.device.removeEventListener('gattserverdisconnected', this.onDisconnected)
     this.controlPoint = null
     this.pending?.resolve(null)
     this.pending = null

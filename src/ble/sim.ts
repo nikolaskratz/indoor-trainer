@@ -82,7 +82,7 @@ class SimDevice extends EventTarget {
   }
   private timer: ReturnType<typeof setInterval> | undefined
 
-  constructor(name: string, services: SimService[], tick: () => void, tickMs: number) {
+  constructor(name: string, services: SimService[], tick: () => void, tickMs: number, onDrop: () => void = () => {}) {
     super()
     this.name = name
     const byUuid = new Map(services.map((s) => [s.uuid, s]))
@@ -94,8 +94,10 @@ class SimDevice extends EventTarget {
         return gatt
       },
       disconnect: () => {
+        if (!gatt.connected) return
         gatt.connected = false
         clearInterval(this.timer)
+        onDrop()
         this.dispatchEvent(new Event('gattserverdisconnected'))
       },
       getPrimaryService: async (uuid: string) => {
@@ -113,6 +115,20 @@ const int16 = (n: number) => [n & 0xff, (n >> 8) & 0xff]
 
 /** Power the simulated rider produces: shared so the heart rate can follow it. */
 let simPowerW = 0
+/** False while the simulated rider has stopped pedalling. */
+let simPedalling = true
+let simTrainer: SimDevice | null = null
+
+/** Hooks for automated tests, exposed as window.__sim in simulation mode. */
+export const simControls = {
+  setPedalling(on: boolean): void {
+    simPedalling = on
+  },
+  /** Drops the trainer connection as if it went out of range. */
+  dropTrainer(): void {
+    simTrainer?.gatt.disconnect()
+  },
+}
 
 function makeTrainer(): SimDevice {
   let hasControl = false
@@ -149,11 +165,11 @@ function makeTrainer(): SimDevice {
 
   const tick = () => {
     // Power closes on the target with a time constant of about 2 s, like an ERG trainer.
-    const goal = targetW ?? FREE_RIDE_W
-    powerW += (goal - powerW) * (TICK_MS / 2000) + (Math.random() - 0.5) * 6
-    powerW = Math.max(0, powerW)
+    const goal = simPedalling ? (targetW ?? FREE_RIDE_W) : 0
+    powerW += (goal - powerW) * (TICK_MS / 2000) + (simPedalling ? (Math.random() - 0.5) * 6 : 0)
+    powerW = simPedalling ? Math.max(0, powerW) : powerW < 3 ? 0 : powerW
     simPowerW = powerW
-    const cadence = 88 + Math.sin(Date.now() / 4000) * 2
+    const cadence = simPedalling ? 88 + Math.sin(Date.now() / 4000) * 2 : 0
     const speedKph = 3.6 * Math.cbrt(powerW / 0.2)
     const p = Math.round(powerW)
     // flags 0x0044: instantaneous cadence and power present, speed present (bit 0 clear)
@@ -175,7 +191,12 @@ function makeTrainer(): SimDevice {
     new SimCharacteristic(CHAR.MODEL_NUMBER, text('Sim Trainer')),
     new SimCharacteristic(CHAR.FIRMWARE_REVISION, text('1.0')),
   ])
-  return new SimDevice('Sim Trainer 0001', [ftms, cps, info], tick, TICK_MS)
+  // A real trainer forgets who controls it when the connection drops.
+  simTrainer = new SimDevice('Sim Trainer 0001', [ftms, cps, info], tick, TICK_MS, () => {
+    hasControl = false
+    targetW = null
+  })
+  return simTrainer
 }
 
 function makeHeartRate(): SimDevice {
