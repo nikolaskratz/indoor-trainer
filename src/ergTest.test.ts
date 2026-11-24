@@ -24,6 +24,20 @@ describe('ERG step judgement', () => {
     expect(r.settleS).toBeLessThan(8)
   })
 
+  it('finds the settle time with one reading a second and uneven timing', () => {
+    // As reported by a real trainer: readings 980 to 1010 ms apart.
+    const samples: PowerPoint[] = []
+    let t = 0
+    for (let i = 0; i < 21; i++) {
+      samples.push({ t, powerW: 180 + (120 - 180) * Math.exp(-t / 2000) + (i % 2 ? 3 : -3) })
+      t += i % 3 === 0 ? 980 : 1010
+    }
+    const r = evaluateErgStep(samples, 180, 0, 20000)
+    expect(r.pass).toBe(true)
+    expect(r.settleS).not.toBeNull()
+    expect(r.settleS).toBeLessThan(6)
+  })
+
   it('fails when the trainer ignores the target', () => {
     const r = evaluateErgStep(ramp(120, 120), 180, 0, 20000)
     expect(r.pass).toBe(false)

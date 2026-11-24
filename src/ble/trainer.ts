@@ -76,6 +76,7 @@ export function requestTrainerDevice(bt: Bluetooth, acceptAll: boolean): Promise
       { services: [SERVICE.CYCLING_POWER] },
       { namePrefix: 'Saris' },
       { namePrefix: 'H3' },
+      { namePrefix: 'Hammer' },
       { namePrefix: 'HAMMER' },
     ],
     optionalServices: KNOWN_SERVICES,

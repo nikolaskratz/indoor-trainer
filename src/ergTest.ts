@@ -40,11 +40,14 @@ export function evaluateErgStep(
 
   // Settle time: first reading from which a 3 s moving average stays within tolerance.
   let settleS: number | null = null
+  const lastT = inStep[inStep.length - 1].t
   for (let i = 0; i < inStep.length; i++) {
     const from = inStep[i].t
+    // Stop once less than a full window of readings is left. Trainers report about
+    // once a second with some jitter, so allow half a second of slack.
+    if (lastT - from < 2500) break
     const win = inStep.filter((s) => s.t >= from && s.t < from + 3000)
-    const span = win[win.length - 1].t - from
-    if (span < 2000) break
+    if (win.length < 2) continue
     const avg = win.reduce((sum, s) => sum + s.powerW, 0) / win.length
     if (Math.abs(avg - targetW) <= toleranceW) {
       settleS = Math.round(((from - startMs) / 1000) * 10) / 10
