@@ -84,6 +84,9 @@ export function WorkoutPage({ id }: { id: string }) {
         </a>
         <h1 className="mt-2 text-2xl font-semibold">{workout.name}</h1>
         <p className="mt-1 max-w-3xl text-sm text-stone-600 dark:text-stone-400">{workout.description}</p>
+        {workout.prompt && (
+          <p className="mt-1 max-w-3xl text-xs text-stone-500">Created from: "{workout.prompt}"</p>
+        )}
       </div>
 
       <Card>
@@ -137,6 +140,20 @@ export function WorkoutPage({ id }: { id: string }) {
       <Card title="Steps">
         <Steps blocks={workout.blocks} ftp={ftp} />
       </Card>
+
+      {workout.source === 'prompt' && (
+        <div>
+          <Button
+            kind="quiet"
+            onClick={() => {
+              workoutStore.set((list) => list.filter((w) => w.id !== workout.id))
+              navigate('')
+            }}
+          >
+            Delete this workout
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

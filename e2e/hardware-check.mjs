@@ -3,7 +3,7 @@
 import { check, fail, withApp } from './lib.mjs'
 
 await withApp(4179, async ({ page, base }) => {
-  await page.goto(`${base}?sim=1&step=6#/check`)
+  await page.goto(`${base}?sim=1&step=10#/check`)
   await page.getByRole('button', { name: 'Connect trainer' }).click()
   await page.getByTestId('trainer-name').waitFor()
   await page.waitForFunction(() => Number.parseInt(document.querySelector('[data-testid=power]').textContent) > 50)

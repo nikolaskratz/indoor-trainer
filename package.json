@@ -8,9 +8,10 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "e2e": "node e2e/hardware-check.mjs && node e2e/ride.mjs"
+    "e2e": "node e2e/hardware-check.mjs && node e2e/ride.mjs && node e2e/prompt.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

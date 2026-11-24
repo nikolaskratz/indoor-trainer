@@ -15,7 +15,11 @@ Live: https://nikolaskratz.github.io/indoor-trainer/
 - Ride summary, history and TCX file download. Everything is stored in the browser.
 - Hardware check page (`#/check`) to verify trainer and strap.
 
-Not built yet: workouts from a prompt, Strava upload, cloud storage.
+- Workouts from a description ("45 min easy Z2 with some variations"): sign in with the Tri Coach
+  account; the Supabase edge function `supabase/functions/turbo-workout` asks Claude for a
+  structured workout. The function must be deployed to the Supabase project once.
+
+Not built yet: Strava upload, cloud storage of rides and workouts.
 
 ## Development
 
@@ -24,7 +28,7 @@ Not built yet: workouts from a prompt, Strava upload, cloud storage.
   (for example `/?sim=1#/`). `&speed=20` runs the ride clock 20 times faster.
 - `npm test` runs the unit tests.
 - `npm run build && npm i --no-save playwright-core && npm run e2e` runs the hardware check and
-  a full simulated ride in Google Chrome.
+  a full simulated ride and the prompt flow (backend mocked) in Google Chrome.
 
 Layout: `src/ble` Bluetooth (FTMS, heart rate, simulated devices), `src/domain` workout model,
 ride session, metrics and TCX export (no browser code), `src/lib` storage and glue,

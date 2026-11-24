@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { DevicesPanel } from '../components/DevicesPanel.tsx'
-import { Button, Card } from '../components/ui.tsx'
+import { PromptCard } from '../components/PromptCard.tsx'
+import { Button } from '../components/ui.tsx'
 import { WorkoutGraph } from '../components/WorkoutGraph.tsx'
 import { BUILTIN_WORKOUTS } from '../domain/builtin.ts'
 import { flatten, formatDuration, workoutStats, type Workout } from '../domain/workout.ts'
@@ -92,6 +93,8 @@ export function Home() {
 
       <DevicesPanel />
 
+      <PromptCard />
+
       <section>
         <h2 className="mb-3 text-base font-semibold">Workouts</h2>
         <div className="grid gap-4 md:grid-cols-2">
@@ -101,12 +104,6 @@ export function Home() {
         </div>
       </section>
 
-      <Card title="Create a workout from a prompt">
-        <p className="text-sm text-stone-600 dark:text-stone-400">
-          Not built yet. This will turn a request such as "45 min easy Z2 with some variations" into a workout. Until
-          then the ready-made workouts above use the same player and recording.
-        </p>
-      </Card>
     </div>
   )
 }

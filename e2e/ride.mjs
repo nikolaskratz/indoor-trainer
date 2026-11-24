@@ -20,7 +20,7 @@ await withApp(4180, async ({ page, base }) => {
   await page.getByLabel('Threshold heart rate').fill('165')
   await page.getByText('139 to 188 W').waitFor()
 
-  await page.getByRole('link', { name: 'Workouts' }).click()
+  await page.getByRole('link', { name: 'Workouts', exact: true }).click()
   await page.getByRole('button', { name: 'Connect trainer' }).click()
   await page.getByTestId('dev-power').getByText(/\d+ W/).waitFor()
   await page.getByRole('button', { name: 'Connect heart rate' }).click()
@@ -75,7 +75,7 @@ await withApp(4180, async ({ page, base }) => {
   console.log(`elapsed before reload ${before}, restored ${restored}`)
   check(restored !== '0:00', 'the reload lost the ride')
   // Devices are gone after a reload: connect again, then continue
-  await page.getByRole('link', { name: 'Workouts' }).click()
+  await page.getByRole('link', { name: 'Workouts', exact: true }).click()
   await page.getByRole('button', { name: 'Connect trainer' }).click()
   await page.getByRole('button', { name: 'Connect heart rate' }).click()
   await page.getByRole('button', { name: 'Back to the ride' }).click()
