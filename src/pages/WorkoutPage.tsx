@@ -1,4 +1,5 @@
 import { connection } from '../ble/devices.ts'
+import { ChangeCard } from '../components/ChangeCard.tsx'
 import { DevicesPanel } from '../components/DevicesPanel.tsx'
 import { Button, Card } from '../components/ui.tsx'
 import { WorkoutGraph } from '../components/WorkoutGraph.tsx'
@@ -87,6 +88,12 @@ export function WorkoutPage({ id }: { id: string }) {
         {workout.prompt && (
           <p className="mt-1 max-w-3xl text-xs text-stone-500">Created from: "{workout.prompt}"</p>
         )}
+        {workout.basedOn && <p className="mt-1 max-w-3xl text-xs text-stone-500">Based on: {workout.basedOn}</p>}
+        {workout.changes && workout.changes.length > 0 && (
+          <p className="mt-1 max-w-3xl text-xs text-stone-500" data-testid="workout-changes">
+            Changed: {workout.changes.map((c) => `"${c}"`).join(', then ')}
+          </p>
+        )}
       </div>
 
       <Card>
@@ -136,6 +143,8 @@ export function WorkoutPage({ id }: { id: string }) {
           </span>
         )}
       </div>
+
+      <ChangeCard key={workout.id} workout={workout} />
 
       <Card title="Steps">
         <Steps blocks={workout.blocks} ftp={ftp} />

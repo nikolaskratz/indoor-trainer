@@ -18,6 +18,9 @@ Live: https://nikolaskratz.github.io/indoor-trainer/
 - Workouts from a description ("45 min easy Z2 with some variations"): sign in with the Tri Coach
   account; the Supabase edge function `supabase/functions/turbo-workout` asks Claude for a
   structured workout. The function must be deployed to the Supabase project once.
+- Change a workout with a second description ("make the warm-up shorter") on its page: your own
+  workouts change in place (with an undo), a built-in one is saved as a changed copy. Same edge
+  function, called with the current workout as `base`.
 
 - Strava: connect once (profile page), then upload a finished ride from its summary as a virtual
   ride. Server side: edge function `supabase/functions/turbo-strava` plus the table in

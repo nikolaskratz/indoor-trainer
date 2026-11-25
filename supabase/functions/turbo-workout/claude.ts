@@ -3,6 +3,7 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@1.1.0'
 import { betaZodOutputFormat } from 'npm:@anthropic-ai/sdk@1.1.0/helpers/beta/zod'
 import * as z from 'npm:zod@4.6.7/v4'
+import { describeBase, type BaseWorkout, type OutBlock, type OutStep } from './base.ts'
 
 export { Anthropic }
 
@@ -79,28 +80,34 @@ target with power_end_pct null.
 - Use repeat counts instead of writing the same steps out several times.
 - Steps last at least 10 seconds. The trainer needs a few seconds to change resistance, so avoid \
 efforts shorter than 15 seconds unless the rider asks for sprints.
-- Labels are two or three plain words. Give a cadence only where it is part of the point of the step.`
+- Labels are two or three plain words. Give a cadence only where it is part of the point of the step.
 
-function prompt(request: string, p: Profile): string {
+Changing an existing workout:
+When the message contains a current workout and a change request, return the whole workout with that \
+change applied.
+- Change only what the request is about. Every other step keeps its duration, target, label, cadence \
+and place in the order, exactly as given.
+- Do not make up for the change elsewhere. A shorter warm-up makes the session shorter. Keep the total \
+length only when the rider asks for it, and then take or add the time in the main part of the session.
+- When the request is relative ("shorter", "a bit harder", "more recovery"), make a clear but moderate \
+change: about a third more or less time, or about 5 percent of FTP. Keep durations at round values.
+- The rules above still apply to the parts you change: a shortened warm-up is still a ramp, and it \
+keeps its openers unless the request removes them.
+- If the request can be read in more than one way, choose the most sensible reading.
+- Keep the name unless it no longer fits, for example because it states a length that changed.
+- The description describes the session as it now is, in one or two sentences, and says what you changed.`
+
+function prompt(request: string, p: Profile, base?: BaseWorkout): string {
   const facts = [
     `FTP: ${Math.round(p.ftp)} W`,
     p.weightKg && `Weight: ${p.weightKg} kg`,
     p.thresholdHr && `Threshold heart rate: ${p.thresholdHr} bpm`,
     p.maxHr && `Max heart rate: ${p.maxHr} bpm`,
   ].filter(Boolean)
-  return `Rider:\n${facts.join('\n')}\n\nRequest:\n${request}`
+  const rider = `Rider:\n${facts.join('\n')}`
+  if (!base) return `${rider}\n\nRequest:\n${request}`
+  return `${rider}\n\n${describeBase(base)}\n\nChange requested:\n${request}`
 }
-
-type OutStep = {
-  type: 'step'
-  kind: z.infer<typeof Step>['kind']
-  durationS: number
-  power: number
-  powerEnd?: number
-  label?: string
-  cadence?: number
-}
-type OutBlock = OutStep | { type: 'repeat'; count: number; blocks: OutBlock[] }
 
 /** Converts the model's two-level structure into the app's nested blocks; null with a reason if unusable. */
 function toBlocks(result: z.infer<typeof Result>): { blocks: OutBlock[] } | { problem: string } {
@@ -151,8 +158,11 @@ function toBlocks(result: z.infer<typeof Result>): { blocks: OutBlock[] } | { pr
   return { blocks: out }
 }
 
-/** `workout` is null when Claude gave no usable answer; `problem` then says why in plain words. */
-export async function generateWorkout(apiKey: string, request: string, profile: Profile) {
+/**
+ * Builds a workout from a description, or, when `base` is given, applies a change request to it.
+ * `workout` is null when Claude gave no usable answer; `problem` then says why in plain words.
+ */
+export async function generateWorkout(apiKey: string, request: string, profile: Profile, base?: BaseWorkout) {
   const client = new Anthropic({ apiKey })
   const response = await client.beta.messages.parse({
     model: MODEL,
@@ -161,7 +171,7 @@ export async function generateWorkout(apiKey: string, request: string, profile: 
     fallbacks: 'default',
     output_config: { effort: 'medium', format: betaZodOutputFormat(Result) },
     system: SYSTEM,
-    messages: [{ role: 'user', content: prompt(request, profile) }],
+    messages: [{ role: 'user', content: prompt(request, profile, base) }],
   })
   const spent = { model: response.model, usage: response.usage }
   if (response.stop_reason === 'refusal' || !response.parsed_output) {

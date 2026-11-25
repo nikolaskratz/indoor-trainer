@@ -1,12 +1,14 @@
 // Turns a request such as "45 min easy Z2 with some variations" into a structured workout.
 //
 // Called by the Indoor Trainer app with the user's Supabase JWT and
-// {prompt, profile: {ftp, weightKg, maxHr, thresholdHr}}. Only accounts listed in
-// tri_owners may call it, so nobody else can spend the API key.
+// {prompt, profile: {ftp, weightKg, maxHr, thresholdHr}}. With {base: <a workout>} as well,
+// the prompt is a change request ("make the warm-up shorter") applied to that workout.
+// Only accounts listed in tri_owners may call it, so nobody else can spend the API key.
 //
 // Needs the ANTHROPIC_API_KEY secret (already set in this project for plant-ai).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { readBase } from './base.ts'
 import { Anthropic, generateWorkout, type Profile } from './claude.ts'
 
 const MAX_PROMPT_CHARS = 1500
@@ -36,9 +38,10 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) return json({ error: 'Workout generation is not set up yet (missing ANTHROPIC_API_KEY).' }, 503)
 
-    const body = (await req.json()) as { prompt?: unknown; profile?: Record<string, unknown> }
+    const body = (await req.json()) as { prompt?: unknown; profile?: Record<string, unknown>; base?: unknown }
     const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : ''
-    if (!prompt) return json({ error: 'Describe the workout you want.' }, 400)
+    const changing = body.base !== undefined && body.base !== null
+    if (!prompt) return json({ error: changing ? 'Describe what to change.' : 'Describe the workout you want.' }, 400)
     if (prompt.length > MAX_PROMPT_CHARS) return json({ error: 'That description is too long.' }, 400)
     const ftp = positive(body.profile?.ftp)
     if (!ftp) return json({ error: 'Enter your FTP in the profile first.' }, 400)
@@ -49,8 +52,11 @@ Deno.serve(async (req) => {
       thresholdHr: positive(body.profile?.thresholdHr),
     }
 
-    const { workout, problem, model, usage } = await generateWorkout(apiKey, prompt, profile)
-    console.log('turbo-workout:', model, usage.input_tokens, 'in', usage.output_tokens, 'out', problem ?? 'ok')
+    const base = changing ? readBase(body.base) : undefined
+    if (base === null) return json({ error: 'This workout cannot be changed: its steps are not readable.' }, 400)
+
+    const { workout, problem, model, usage } = await generateWorkout(apiKey, prompt, profile, base)
+    console.log('turbo-workout:', base ? 'change' : 'new', model, usage.input_tokens, 'in', usage.output_tokens, 'out', problem ?? 'ok')
     if (!workout) return json({ error: problem ?? 'Could not build a workout from that. Try rephrasing it.' }, 502)
     return json({ workout })
   } catch (e) {

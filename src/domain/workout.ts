@@ -30,7 +30,12 @@ export interface Workout {
   description: string
   blocks: Block[]
   source: 'builtin' | 'prompt'
+  /** The description the workout was created from. */
   prompt?: string
+  /** Name of the built-in workout a changed copy started from. */
+  basedOn?: string
+  /** Change requests applied since, oldest first ("make the warm-up shorter"). */
+  changes?: string[]
   createdAt: string
 }
 

@@ -27,9 +27,11 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut()
 }
 
-/** Asks the server to build a workout from a description. Throws an Error with a readable message. */
-export async function generateWorkout(prompt: string, profile: RiderProfile): Promise<Workout> {
-  const { data, error } = await supabase.functions.invoke('turbo-workout', { body: { prompt, profile } })
+type Generated = { name: string; description: string; blocks: Block[] }
+
+/** Calls the workout generator. Throws an Error with a readable message. */
+async function callGenerator(body: { prompt: string; profile: RiderProfile; base?: unknown }): Promise<Generated> {
+  const { data, error } = await supabase.functions.invoke('turbo-workout', { body })
   if (error) {
     let message = 'The workout generator could not be reached. Check your connection and try again.'
     if (error instanceof FunctionsHttpError) {
@@ -42,17 +44,39 @@ export async function generateWorkout(prompt: string, profile: RiderProfile): Pr
     }
     throw new Error(message)
   }
-  const result = (data as { workout?: { name: string; description: string; blocks: Block[] } }).workout
+  const result = (data as { workout?: Generated }).workout
   if (!result || !Array.isArray(result.blocks)) throw new Error('The workout generator returned nothing usable.')
   const problems = validateWorkout(result.blocks)
   if (problems.length) throw new Error(`The generated workout is not usable: ${problems[0]}`)
-  return {
-    id: `w-${Date.now().toString(36)}`,
-    name: result.name,
-    description: result.description,
-    blocks: result.blocks,
-    source: 'prompt',
-    prompt,
-    createdAt: new Date().toISOString(),
-  }
+  return { name: result.name, description: result.description, blocks: result.blocks }
+}
+
+const newId = () => `w-${Date.now().toString(36)}`
+
+/** Asks the server to build a workout from a description. Throws an Error with a readable message. */
+export async function generateWorkout(prompt: string, profile: RiderProfile): Promise<Workout> {
+  const result = await callGenerator({ prompt, profile })
+  return { id: newId(), ...result, source: 'prompt', prompt, createdAt: new Date().toISOString() }
+}
+
+/**
+ * Asks the server to apply a change ("make the warm-up shorter") to a workout.
+ * A workout of the user's own comes back changed under the same id; a built-in one comes
+ * back as a new workout, since built-ins cannot be edited. Throws an Error with a readable message.
+ */
+export async function reviseWorkout(workout: Workout, change: string, profile: RiderProfile): Promise<Workout> {
+  const result = await callGenerator({
+    prompt: change,
+    profile,
+    base: {
+      name: workout.name,
+      description: workout.description,
+      blocks: workout.blocks,
+      prompt: workout.prompt,
+      changes: workout.changes,
+    },
+  })
+  const changes = [...(workout.changes ?? []), change]
+  if (workout.source === 'prompt') return { ...workout, ...result, changes }
+  return { id: newId(), ...result, source: 'prompt', basedOn: workout.name, changes, createdAt: new Date().toISOString() }
 }
