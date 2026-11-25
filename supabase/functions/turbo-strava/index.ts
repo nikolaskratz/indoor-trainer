@@ -8,7 +8,8 @@
 //   disconnect                 -> revoke access and forget the tokens
 //
 // The client secret and the tokens never leave the server: tokens live in turbo_strava,
-// which only this function (service role) can read. Only accounts in tri_owners may call it.
+// which only this function (service role) can read. Only the owner and the people they
+// let in (see turbo_access_of) may call it.
 //
 // Needs the secrets STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET.
 
@@ -87,9 +88,9 @@ Deno.serve(async (req) => {
     const { data } = jwt ? await supabase.auth.getUser(jwt) : { data: { user: null } }
     if (!data.user) return json({ error: 'Please sign in first.' }, 401)
     const userId = data.user.id
-    const owner = await supabase.from('tri_owners').select('user_id').eq('user_id', userId).maybeSingle()
-    if (owner.error) throw owner.error
-    if (!owner.data) return json({ error: 'This account may not use Strava here.' }, 403)
+    const access = await supabase.rpc('turbo_access_of', { p_user: userId })
+    if (access.error) throw access.error
+    if (access.data !== 'owner' && access.data !== 'member') return json({ error: 'This account has no access yet.' }, 403)
 
     const body = (await req.json()) as Record<string, unknown>
     const action = body.action

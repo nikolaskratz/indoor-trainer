@@ -3,7 +3,8 @@
 // Called by the Indoor Trainer app with the user's Supabase JWT and
 // {prompt, profile: {ftp, weightKg, maxHr, thresholdHr}}. With {base: <a workout>} as well,
 // the prompt is a change request ("make the warm-up shorter") applied to that workout.
-// Only accounts listed in tri_owners may call it, so nobody else can spend the API key.
+// Only the owner and the people they let in (see turbo_access_of) may call it, so nobody
+// else can spend the API key.
 //
 // Needs the ANTHROPIC_API_KEY secret (already set in this project for plant-ai).
 
@@ -31,9 +32,9 @@ Deno.serve(async (req) => {
     const token = req.headers.get('Authorization')?.replace('Bearer ', '')
     const { data } = token ? await supabase.auth.getUser(token) : { data: { user: null } }
     if (!data.user) return json({ error: 'Please sign in first.' }, 401)
-    const owner = await supabase.from('tri_owners').select('user_id').eq('user_id', data.user.id).maybeSingle()
-    if (owner.error) throw owner.error
-    if (!owner.data) return json({ error: 'This account may not create workouts.' }, 403)
+    const access = await supabase.rpc('turbo_access_of', { p_user: data.user.id })
+    if (access.error) throw access.error
+    if (access.data !== 'owner' && access.data !== 'member') return json({ error: 'This account has no access yet.' }, 403)
 
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) return json({ error: 'Workout generation is not set up yet (missing ANTHROPIC_API_KEY).' }, 503)

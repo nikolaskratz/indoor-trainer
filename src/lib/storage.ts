@@ -66,8 +66,10 @@ interface SyncMeta {
   deletedRides: Record<string, number>
   /** Saved rides and the time of their last change; null until built from the ride database. */
   rides: Record<string, number> | null
+  /** The account this browser's data was last synced with; null before the first sync. */
+  owner: string | null
 }
-const meta = read<SyncMeta>(KEY.sync, { profileAt: 0, deletedWorkouts: {}, deletedRides: {}, rides: null })
+const meta = read<SyncMeta>(KEY.sync, { profileAt: 0, deletedWorkouts: {}, deletedRides: {}, rides: null, owner: null })
 const saveMeta = (): void => write(KEY.sync, meta)
 
 const changeListeners = new Set<() => void>()
@@ -96,9 +98,10 @@ export interface ProfileForm {
   thresholdHr: number | null
 }
 
-export const profileStore = new Store<ProfileForm>(
-  read<ProfileForm>(KEY.profile, { ftp: null, weightKg: null, maxHr: null, thresholdHr: null }),
-)
+const EMPTY_PROFILE: ProfileForm = { ftp: null, weightKg: null, maxHr: null, thresholdHr: null }
+const DEFAULT_SETTINGS: Settings = { sound: true, autoPause: true }
+
+export const profileStore = new Store<ProfileForm>(read<ProfileForm>(KEY.profile, EMPTY_PROFILE))
 profileStore.subscribe(() => {
   write(KEY.profile, profileStore.get())
   profileChanged()
@@ -110,7 +113,7 @@ export function riderProfile(p: ProfileForm): RiderProfile | null {
   return { ftp: p.ftp, weightKg: p.weightKg, maxHr: p.maxHr, thresholdHr: p.thresholdHr }
 }
 
-export const settingsStore = new Store<Settings>(read<Settings>(KEY.settings, { sound: true, autoPause: true }))
+export const settingsStore = new Store<Settings>(read<Settings>(KEY.settings, DEFAULT_SETTINGS))
 settingsStore.subscribe(() => {
   write(KEY.settings, settingsStore.get())
   profileChanged()
@@ -268,6 +271,36 @@ export interface CloudProfile {
 
 /** The device copy as the account sync sees it. Nothing in here counts as a change by the user. */
 export const cloudLocal = {
+  /** The account this browser's data belongs to; null while it was never synced. */
+  owner: (): string | null => meta.owner,
+  setOwner(userId: string): void {
+    if (meta.owner === userId) return
+    meta.owner = userId
+    saveMeta()
+  },
+  /**
+   * Empties this browser's copy (profile, settings, workouts, rides) and hands it to
+   * `userId`, whose data the next sync then loads. A ride in progress is left alone.
+   */
+  async replaceWith(userId: string): Promise<void> {
+    fromCloud = true
+    try {
+      profileStore.set({ ...EMPTY_PROFILE })
+      settingsStore.set({ ...DEFAULT_SETTINGS })
+    } finally {
+      fromCloud = false
+    }
+    workoutStore.set([])
+    await tx('readwrite', (s) => s.clear())
+    meta.profileAt = 0
+    meta.deletedWorkouts = {}
+    meta.deletedRides = {}
+    meta.rides = {}
+    meta.owner = userId
+    saveMeta()
+    ridesVersion.set((v) => v + 1)
+  },
+
   profile(): { at: number; data: CloudProfile } {
     return { at: meta.profileAt, data: { profile: profileStore.get(), settings: settingsStore.get() } }
   },

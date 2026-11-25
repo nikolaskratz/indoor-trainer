@@ -23,9 +23,9 @@ Live: https://nikolaskratz.github.io/indoor-trainer/
   item the side that changed it last wins, deletions are kept as markers.
 - Hardware check page (`#/check`) to verify trainer and strap.
 
-- Workouts from a description ("45 min easy Z2 with some variations"): sign in with the Tri Coach
-  account; the Supabase edge function `supabase/functions/turbo-workout` asks Claude for a
-  structured workout. The function must be deployed to the Supabase project once.
+- Workouts from a description ("45 min easy Z2 with some variations"): sign in; the Supabase
+  edge function `supabase/functions/turbo-workout` asks Claude for a structured workout. The
+  function must be deployed to the Supabase project once.
 - Change a workout with a second description ("make the warm-up shorter") on its page: your own
   workouts change in place (with an undo), a built-in one is saved as a changed copy. Same edge
   function, called with the current workout as `base`.
@@ -33,6 +33,15 @@ Live: https://nikolaskratz.github.io/indoor-trainer/
 - Strava: connect once (profile page), then upload a finished ride from its summary as a virtual
   ride. Server side: edge function `supabase/functions/turbo-strava` plus the table in
   `supabase/migrations`; needs the secrets `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET`.
+
+- Several people: the owner (the account in `tri_owners`) adds email addresses under "People
+  with access" on the profile page; each person creates their own account on the start page.
+  Everyone gets only their own rows (`turbo_access()` in `supabase/migrations`, also checked by
+  both edge functions); an account that was not added can sign in but uses the app in its
+  browser only. A browser that holds one account's data exchanges nothing with another account
+  until the user hands the browser over on the profile page. Strava limits a new API
+  application to one athlete until Strava raises the limit, so other people may have to upload
+  the downloaded ride file by hand.
 
 ## Development
 
@@ -42,7 +51,7 @@ Live: https://nikolaskratz.github.io/indoor-trainer/
 - `npm test` runs the unit tests.
 - `npm run build && npm i --no-save playwright-core && npm run e2e` runs the hardware check and
   a full simulated ride, the prompt and Strava flows, account sync between two browsers (backend
-  mocked), and the FTP test with the floating window, in Google Chrome.
+  mocked), the FTP test with the floating window, and several accounts, in Google Chrome.
 
 Layout: `src/ble` Bluetooth (FTMS, heart rate, simulated devices), `src/domain` workout model,
 ride session, metrics and TCX export (no browser code), `src/lib` storage and glue,

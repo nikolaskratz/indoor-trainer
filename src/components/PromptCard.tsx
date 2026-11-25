@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { generateWorkout, sessionStore, signIn, signOut } from '../lib/cloud.ts'
+import { accessStore, generateWorkout, sessionStore, signIn, signOut, signUp } from '../lib/cloud.ts'
 import { href, navigate } from '../lib/router.ts'
 import { profileStore, riderProfile, saveWorkout } from '../lib/storage.ts'
 import { useStore } from '../lib/store.ts'
+import { NoAccessNote } from './SyncBits.tsx'
 import { Button, Card } from './ui.tsx'
 
 const EXAMPLES = ['45 min easy Z2 with some variations', '3x10x 30sec/30sec VO2 max workout', '60 min with 3x12 min sweet spot']
@@ -11,23 +12,35 @@ const INPUT =
   'w-full rounded border border-stone-300 bg-white px-3 py-2 text-sm dark:border-stone-700 dark:bg-stone-900'
 
 function SignIn() {
+  const [creating, setCreating] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    setError(await signIn(email, password))
+    setNotice(null)
+    const result = creating ? await signUp(email, password) : await signIn(email, password)
+    if (result === 'confirm') {
+      setNotice('Almost done: open the link in the email we just sent you, then sign in here.')
+      setCreating(false)
+      setPassword('')
+    } else {
+      setError(result)
+    }
     setBusy(false)
   }
 
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
       <p className="text-sm text-stone-600 dark:text-stone-400">
-        Sign in to create workouts from a description. Use the same account as Tri Coach.
+        {creating
+          ? 'Create your own account with the email address that was given access. Your profile, workouts and rides are yours alone.'
+          : 'Sign in to create workouts from a description and to save your profile, workouts and rides to your account.'}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <input
@@ -43,22 +56,36 @@ function SignIn() {
         <input
           type="password"
           required
-          autoComplete="current-password"
-          placeholder="Password"
+          minLength={creating ? 8 : undefined}
+          autoComplete={creating ? 'new-password' : 'current-password'}
+          placeholder={creating ? 'Choose a password (8 or more characters)' : 'Password'}
           aria-label="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className={INPUT}
         />
       </div>
+      {notice && <p className="text-sm text-teal-800 dark:text-teal-400">{notice}</p>}
       {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
-      <button
-        type="submit"
-        disabled={busy}
-        className="rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
-      >
-        {busy ? 'Signing in…' : 'Sign in'}
-      </button>
+      <div className="flex flex-wrap items-center gap-4">
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+        >
+          {creating ? (busy ? 'Creating account…' : 'Create account') : busy ? 'Signing in…' : 'Sign in'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setCreating(!creating)
+            setError(null)
+          }}
+          className="text-sm text-teal-700 underline dark:text-teal-400"
+        >
+          {creating ? 'I already have an account' : 'New here? Create an account'}
+        </button>
+      </div>
     </form>
   )
 }
@@ -66,6 +93,7 @@ function SignIn() {
 /** Describe a workout in words and get a structured one back. */
 export function PromptCard() {
   const session = useStore(sessionStore)
+  const access = useStore(accessStore)
   const profile = riderProfile(useStore(profileStore))
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
@@ -102,6 +130,8 @@ export function PromptCard() {
         <p className="text-sm text-stone-500">Loading…</p>
       ) : session === null ? (
         <SignIn />
+      ) : access === 'none' ? (
+        <NoAccessNote email={session.user.email} />
       ) : (
         <div className="space-y-3">
           <textarea

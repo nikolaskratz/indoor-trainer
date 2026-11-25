@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { flatten, formatDuration, totalDuration, type Workout } from '../domain/workout.ts'
-import { reviseWorkout, sessionStore } from '../lib/cloud.ts'
+import { accessStore, reviseWorkout, sessionStore } from '../lib/cloud.ts'
 import { href, navigate } from '../lib/router.ts'
 import { profileStore, riderProfile, saveWorkout } from '../lib/storage.ts'
 import { useStore } from '../lib/store.ts'
@@ -16,6 +16,7 @@ const length = (w: Workout) => formatDuration(totalDuration(flatten(w.blocks)))
  */
 export function ChangeCard({ workout }: { workout: Workout }) {
   const session = useStore(sessionStore)
+  const access = useStore(accessStore)
   const profile = riderProfile(useStore(profileStore))
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -59,7 +60,8 @@ export function ChangeCard({ workout }: { workout: Workout }) {
     setPrevious(null)
   }
 
-  if (session === undefined) return null
+  // An account without access cannot use the generator; the start page says why.
+  if (session === undefined || (session && access === 'none')) return null
   return (
     <Card title="Change this workout">
       {session === null ? (

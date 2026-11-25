@@ -5,7 +5,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { buildTcx } from '../domain/tcx.ts'
 import { flatten } from '../domain/workout.ts'
-import { sessionStore, supabase } from './cloud.ts'
+import { accessStore, sessionStore, supabase } from './cloud.ts'
 import { saveRide, type SavedRide } from './storage.ts'
 import { Store } from './store.ts'
 
@@ -13,7 +13,7 @@ export type StravaState =
   | { kind: 'unknown' }
   /** Not signed in to the app, so Strava cannot be asked. */
   | { kind: 'signed-out' }
-  /** The server side is missing or has no Strava credentials yet. */
+  /** The server side is missing, has no Strava credentials yet, or this account has no access. */
   | { kind: 'unavailable' }
   | { kind: 'disconnected'; clientId: string }
   | { kind: 'connected'; clientId: string; athlete: string | null }
@@ -48,6 +48,13 @@ export async function refreshStrava(): Promise<void> {
     stravaStore.set({ kind: 'signed-out' })
     return
   }
+  const access = accessStore.get()
+  // Not known yet: this runs again once it is. The server refuses accounts without access.
+  if (access === null) return
+  if (access === 'none') {
+    stravaStore.set({ kind: 'unavailable' })
+    return
+  }
   try {
     const s = await call<{ configured: boolean; clientId?: string; connected: boolean; athlete?: string | null }>('status')
     if (!s.configured || !s.clientId) stravaStore.set({ kind: 'unavailable' })
@@ -58,10 +65,11 @@ export async function refreshStrava(): Promise<void> {
   }
 }
 
-// Ask again whenever the sign-in state changes, and now if it is already known.
+// Ask again whenever the sign-in state or the account's access changes, and now if it is already known.
 sessionStore.subscribe(() => {
   if (sessionStore.get() !== undefined) void refreshStrava()
 })
+accessStore.subscribe(() => void refreshStrava())
 if (sessionStore.get() !== undefined) void refreshStrava()
 
 /** The page Strava sends the user back to: the app's own address without query or hash. */

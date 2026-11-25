@@ -1,3 +1,4 @@
+import { AccessCard } from '../components/AccessCard.tsx'
 import { StravaCard } from '../components/StravaBits.tsx'
 import { SyncCard } from '../components/SyncBits.tsx'
 import { Card } from '../components/ui.tsx'
@@ -87,6 +88,8 @@ export function ProfilePage() {
       <SyncCard />
 
       <StravaCard />
+
+      <AccessCard />
 
       <Card title="Ride settings">
         <div className="space-y-3 text-sm">

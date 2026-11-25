@@ -1,5 +1,5 @@
-// The app's link to Supabase: sign-in and the workout generator.
-// Shares the tri-coach Supabase project and its login.
+// The app's link to Supabase: accounts, who has access, and the workout generator.
+// Shares the tri-coach Supabase project and its logins.
 
 import { createClient, FunctionsHttpError, type Session } from '@supabase/supabase-js'
 import type { RiderProfile } from '../domain/ride.ts'
@@ -23,9 +23,59 @@ export async function signIn(email: string, password: string): Promise<string | 
   return error ? error.message : null
 }
 
+/**
+ * Creates an account. Resolves to an error message, to 'confirm' when the address has to
+ * be confirmed by email before the first sign-in, or to null when the user is now signed in.
+ */
+export async function signUp(email: string, password: string): Promise<string | null> {
+  const { data, error } = await supabase.auth.signUp({ email: email.trim(), password })
+  if (error) return error.message
+  return data.session ? null : 'confirm'
+}
+
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut()
 }
+
+/**
+ * What the signed-in account may do on the server: the owner runs the app and decides who
+ * else gets in, a member was let in by the owner, 'none' has an account but no access yet.
+ * Everyone gets only their own data. null while signed out or not yet known.
+ */
+export type Access = 'owner' | 'member' | 'none'
+export const accessStore = new Store<Access | null>(null)
+
+let accessCheck: { user: string; result: Promise<Access> } | null = null
+
+/** Asks the server what the signed-in account may do. Throws when it cannot be reached. */
+export function refreshAccess(): Promise<Access> {
+  const user = sessionStore.get()?.user.id
+  if (!user) return Promise.resolve('none')
+  if (accessCheck?.user === user) return accessCheck.result
+  const result = (async (): Promise<Access> => {
+    try {
+      const { data, error } = await supabase.rpc('turbo_access')
+      if (error) throw new Error(error.message)
+      const access: Access = data === 'owner' || data === 'member' ? data : 'none'
+      if (sessionStore.get()?.user.id === user) accessStore.set(access)
+      return access
+    } finally {
+      accessCheck = null
+    }
+  })()
+  accessCheck = { user, result }
+  return result
+}
+
+let accessUser: string | null = null
+sessionStore.subscribe(() => {
+  const user = sessionStore.get()?.user.id ?? null
+  if (user === accessUser) return
+  accessUser = user
+  accessStore.set(null)
+  // A failure here is retried by the sync, which needs the answer too.
+  if (user) void refreshAccess().catch(() => undefined)
+})
 
 type Generated = { name: string; description: string; blocks: Block[] }
 

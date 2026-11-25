@@ -5,18 +5,24 @@
 // this module reconciles it with the account in the background. Per item, the side
 // that changed it last wins (see domain/sync.ts). Without a sign-in nothing is sent.
 //
-// Tables (supabase/migrations): turbo_profile, turbo_workouts, turbo_rides. Rows are
-// readable and writable by their owner only.
+// Several people can have an account, so two rules keep their data apart: the server
+// only hands out and accepts an account's own rows, and a browser that already holds
+// one account's data exchanges nothing with another account until the user says so.
+//
+// Tables (supabase/migrations): turbo_profile, turbo_workouts, turbo_rides.
 
 import { packSamples, planSync, unpackSamples, type Entry } from '../domain/sync.ts'
 import type { Workout } from '../domain/workout.ts'
-import { sessionStore, supabase } from './cloud.ts'
+import { accessStore, refreshAccess, sessionStore, supabase } from './cloud.ts'
 import { cloudLocal, loadRide, onLocalChange, workoutStore, type CloudProfile, type SavedRide } from './storage.ts'
 import { Store } from './store.ts'
 
 export interface SyncState {
-  /** off: not signed in. */
-  status: 'off' | 'idle' | 'syncing' | 'error'
+  /**
+   * off: not signed in. noaccess: signed in, but the owner has not let this account in yet.
+   * otheraccount: this browser holds another account's data, so nothing is exchanged.
+   */
+  status: 'off' | 'idle' | 'syncing' | 'error' | 'noaccess' | 'otheraccount'
   /** When everything was last known to be in the account, epoch ms. */
   lastSyncedAt: number | null
   error: string | null
@@ -154,16 +160,29 @@ async function syncRides(): Promise<void> {
 let timer: ReturnType<typeof setTimeout> | undefined
 let running = false
 let again = false
+let recheckAccess = false
+
+const stopped = (status: 'noaccess' | 'otheraccount'): void =>
+  syncStore.set({ status, lastSyncedAt: null, error: null, progress: null })
 
 async function run(): Promise<void> {
-  if (!sessionStore.get()) return
+  const user = sessionStore.get()?.user.id
+  if (!user) return
   if (running) {
     again = true
     return
   }
   running = true
-  syncStore.set((s) => ({ ...s, status: 'syncing', error: null }))
   try {
+    const known = accessStore.get()
+    const access = !recheckAccess && (known === 'owner' || known === 'member') ? known : await refreshAccess()
+    recheckAccess = false
+    if (sessionStore.get()?.user.id !== user) return
+    if (access === 'none') return stopped('noaccess')
+    const holder = cloudLocal.owner()
+    if (holder && holder !== user) return stopped('otheraccount')
+    cloudLocal.setOwner(user)
+    syncStore.set((s) => ({ ...s, status: 'syncing', error: null }))
     await syncProfile()
     await syncWorkouts()
     await syncRides()
@@ -171,6 +190,8 @@ async function run(): Promise<void> {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     syncStore.set((s) => ({ ...s, status: 'error', error: message, progress: null }))
+    // The server also refuses an account whose access was taken away: ask again next time.
+    recheckAccess = true
     // Try again later on its own: the usual cause is a dropped connection.
     again = false
     requestSync(RETRY_MS)
@@ -188,6 +209,17 @@ export function requestSync(delayMs = DEBOUNCE_MS): void {
   if (!sessionStore.get()) return
   clearTimeout(timer)
   timer = setTimeout(() => void run(), delayMs)
+}
+
+/**
+ * Hands this browser to the signed-in account: deletes the data it holds (another
+ * account's) and loads the signed-in account's instead.
+ */
+export async function switchBrowserToThisAccount(): Promise<void> {
+  const user = sessionStore.get()?.user.id
+  if (!user || syncStore.get().status !== 'otheraccount') return
+  await cloudLocal.replaceWith(user)
+  requestSync(0)
 }
 
 let started = false
