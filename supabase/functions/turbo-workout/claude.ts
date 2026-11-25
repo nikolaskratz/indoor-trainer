@@ -7,7 +7,7 @@ import { describeBase, type BaseWorkout, type OutBlock, type OutStep } from './b
 
 export { Anthropic }
 
-const MODEL = 'claude-opus-5-5'
+export const MODEL = 'claude-opus-5-5'
 const MAX_TOKENS = 8000
 
 export type Profile = {

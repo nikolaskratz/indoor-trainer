@@ -43,6 +43,12 @@ Live: https://nikolaskratz.github.io/indoor-trainer/
   application to one athlete until Strava raises the limit, so other people may have to upload
   the downloaded ride file by hand.
 
+- Spending guard for the Claude API key: per account, the workout function allows a number of
+  requests per hour and a budget per calendar month (owner 30 per hour and $20, others 10 per
+  hour and $3). The limits are in the SQL function `turbo_limits`; every call is logged with
+  tokens and estimated cost in `turbo_usage`, and the owner sees this month's use per person
+  on the profile page.
+
 ## Development
 
 - `npm run dev`, then open the printed URL in Chrome (Web Bluetooth needs Chrome or Edge).

@@ -59,6 +59,10 @@ await withApp(4185, async ({ page: f, base, otherBrowser, errors }) => {
 
   // The owner, on another computer: manages the list
   const ownerDb = emptyCloud()
+  ownerDb.usage = [
+    { email: 'owner@example.com', access: 'owner', requests: 9, cost_usd: 0.3051, month_usd: 20 },
+    { email: 'friend@example.com', access: 'member', requests: 1, cost_usd: 0.0319, month_usd: 3 },
+  ]
   const o = await otherBrowser()
   await setUp(o, ownerDb)
   await o.goto(url(''))
@@ -76,8 +80,10 @@ await withApp(4185, async ({ page: f, base, otherBrowser, errors }) => {
     await o.getByRole('button', { name: 'Give access' }).click()
     await until(async () => (await o.getByLabel('Email address to give access').inputValue()) === '', 'the address field was not cleared after adding')
   }
+  await o.getByTestId('my-usage').getByText('You: 9 requests, $0.31 of $20.00 this month.').waitFor()
   await give('Friend@Example.com')
   await o.getByTestId('access-list').getByText('friend@example.com').waitFor()
+  await o.getByTestId('access-list').getByText('1 request, $0.03 of $3.00 this month').waitFor()
   check(ownerDb.turbo_members.length === 1 && ownerDb.turbo_members[0].email === 'friend@example.com', 'the address was not stored in lower case')
   check(errors.length === 0, `page errors: ${errors.join(' | ')}`)
   await give('friend@example.com') // twice is fine and changes nothing
@@ -85,6 +91,7 @@ await withApp(4185, async ({ page: f, base, otherBrowser, errors }) => {
   errors.length = 0 // the server answers the duplicate with 409, which the browser logs
   await give('second@example.com')
   await o.getByTestId('access-list').getByText('second@example.com').waitFor()
+  await o.getByTestId('access-list').getByText('no account yet').waitFor() // added, but has not signed up
   await o.screenshot({ path: `${process.env.SHOTS ?? 'e2e'}/access-list.png`, fullPage: true })
   await o.getByTestId('access-list').getByRole('listitem').filter({ hasText: 'second@example.com' }).getByRole('button', { name: 'Remove' }).click()
   await until(() => ownerDb.turbo_members.length === 1 && ownerDb.turbo_members[0].email === 'friend@example.com', 'removing an address removed the wrong one or none')

@@ -44,6 +44,9 @@ await withApp(4181, async ({ page, base, errors }) => {
   const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' }
   let calls = 0
   let sentBody = null
+  // The server's answer once an account has reached its limit
+  let limited = false
+  const LIMIT_TEXT = 'That is the limit of 10 workout requests per hour. Try again in about 13 minutes.'
   // Signing in also starts the account sync; keep it away from the real server.
   const db = await mockCloud(page)
   await page.route('**/auth/v1/token**', (route) =>
@@ -69,6 +72,9 @@ await withApp(4181, async ({ page, base, errors }) => {
     sentBody = route.request().postDataJSON()
     if (calls === 1) {
       return route.fulfill({ status: 502, headers: cors, contentType: 'application/json', body: JSON.stringify({ error: 'Mock failure: try again.' }) })
+    }
+    if (limited) {
+      return route.fulfill({ status: 429, headers: cors, contentType: 'application/json', body: JSON.stringify({ error: LIMIT_TEXT }) })
     }
     const workout = sentBody.base ? { ...revised, name: sentBody.base.name } : generated
     return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ workout }) })
@@ -156,5 +162,15 @@ await withApp(4181, async ({ page, base, errors }) => {
   await page.getByRole('button', { name: 'Delete this workout' }).click()
   await page.getByRole('link', { name: /Quick check/ }).waitFor()
   check((await page.getByRole('link', { name: /Mock 2 x 3/ }).count()) === 0, 'the deleted workout is still listed')
+
+  // At the limit the server refuses: its message is shown, the text stays, nothing is created
+  check(errors.length === 0, `page errors: ${errors.join(' | ')}`)
+  limited = true
+  await page.getByLabel('Workout description').fill('60 min endurance')
+  await page.getByRole('button', { name: 'Create workout' }).click()
+  await page.getByText(LIMIT_TEXT).waitFor()
+  errors.length = 0 // the browser logs the mocked 429; that one is expected
+  check((await page.getByLabel('Workout description').inputValue()) === '60 min endurance', 'the description was lost at the limit')
+  check((await page.getByRole('link', { name: /Mock/ }).count()) === 0, 'a workout was created although the limit was reached')
   check(db.problems.length === 0, `unexpected database calls: ${db.problems.join(' | ')}`)
 })

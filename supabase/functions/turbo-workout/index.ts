@@ -4,13 +4,16 @@
 // {prompt, profile: {ftp, weightKg, maxHr, thresholdHr}}. With {base: <a workout>} as well,
 // the prompt is a change request ("make the warm-up shorter") applied to that workout.
 // Only the owner and the people they let in (see turbo_access_of) may call it, so nobody
-// else can spend the API key.
+// else can spend the API key. Each account is also limited to a number of requests per hour
+// and a budget per month: turbo_usage_start reserves a request or refuses, and the tokens
+// and estimated cost of every call are written to turbo_usage.
 //
 // Needs the ANTHROPIC_API_KEY secret (already set in this project for plant-ai).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { readBase } from './base.ts'
-import { Anthropic, generateWorkout, type Profile } from './claude.ts'
+import { Anthropic, generateWorkout, MODEL, type Profile } from './claude.ts'
+import { limitMessage, spent, type Refusal } from './usage.ts'
 
 const MAX_PROMPT_CHARS = 1500
 
@@ -56,8 +59,23 @@ Deno.serve(async (req) => {
     const base = changing ? readBase(body.base) : undefined
     if (base === null) return json({ error: 'This workout cannot be changed: its steps are not readable.' }, 400)
 
+    // The spending guard. If it cannot be asked, nothing is sent to Claude.
+    const reserved = await supabase.rpc('turbo_usage_start', { p_user: data.user.id, p_kind: base ? 'change' : 'new' })
+    if (reserved.error) throw reserved.error
+    const slot = (reserved.data ?? {}) as { ok?: boolean; id?: number } & Refusal
+    if (slot.ok !== true || typeof slot.id !== 'number') {
+      console.log('turbo-workout: refused,', slot.reason ?? 'no answer from the guard')
+      return json({ error: limitMessage(slot, Date.now()) }, 429)
+    }
+
     const { workout, problem, model, usage } = await generateWorkout(apiKey, prompt, profile, base)
-    console.log('turbo-workout:', base ? 'change' : 'new', model, usage.input_tokens, 'in', usage.output_tokens, 'out', problem ?? 'ok')
+    const cost = spent(MODEL, model, usage)
+    const recorded = await supabase
+      .from('turbo_usage')
+      .update({ model, input_tokens: cost.inputTokens, output_tokens: cost.outputTokens, cost_usd: cost.costUsd })
+      .eq('id', slot.id)
+    if (recorded.error) console.error('turbo-workout: usage not recorded:', recorded.error.message)
+    console.log('turbo-workout:', base ? 'change' : 'new', model, cost.inputTokens, 'in', cost.outputTokens, 'out', cost.costUsd, 'USD', problem ?? 'ok')
     if (!workout) return json({ error: problem ?? 'Could not build a workout from that. Try rephrasing it.' }, 502)
     return json({ workout })
   } catch (e) {

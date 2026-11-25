@@ -86,7 +86,7 @@ export async function mockSignIn(page) {
  * An empty stand-in for one account's tables. Share one between pages to play two browsers.
  * `access` is what the server says the account may do: 'owner', 'member' or 'none'.
  */
-export const emptyCloud = () => ({ access: 'owner', turbo_profile: [], turbo_workouts: [], turbo_rides: [], turbo_members: [], problems: [] })
+export const emptyCloud = () => ({ access: 'owner', usage: [], turbo_profile: [], turbo_workouts: [], turbo_rides: [], turbo_members: [], problems: [] })
 
 /**
  * Answers the app's database calls from `db` instead of the real server: the access
@@ -109,6 +109,8 @@ export async function mockCloud(page, db = emptyCloud()) {
       return reply(400, { message: why })
     }
     if (url.pathname.endsWith('/rpc/turbo_access')) return reply(200, db.access)
+    // What each person used this month (db.usage); like the real server, only the owner gets rows.
+    if (url.pathname.endsWith('/rpc/turbo_usage_summary')) return reply(200, db.access === 'owner' ? db.usage : [])
     if (!Array.isArray(rows)) return refuse('unknown table')
     if (db.access === 'none') return refuse('a database call from an account without access')
     if (table === 'turbo_members') {
