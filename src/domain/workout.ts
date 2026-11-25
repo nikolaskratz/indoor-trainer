@@ -36,7 +36,11 @@ export interface Workout {
   basedOn?: string
   /** Change requests applied since, oldest first ("make the warm-up shorter"). */
   changes?: string[]
+  /** Set on the FTP test: the ride page and the summary treat it specially. */
+  test?: 'ramp'
   createdAt: string
+  /** Time of the last change, epoch ms; used to sync between browsers. */
+  updatedAt?: number
 }
 
 /** One step of the expanded workout, with its place on the timeline. */

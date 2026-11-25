@@ -220,6 +220,17 @@ export class RideSession {
     this.emit()
   }
 
+  /** Jumps to the start of the step with this index, forwards or backwards. */
+  jumpTo(index: number): void {
+    if (this.status === 'ready' || this.status === 'finished') return
+    const segment = this.segments[index]
+    if (!segment) return
+    this.positionS = segment.startS
+    this.carryMs = 0
+    this.afterPositionChange()
+    this.emit()
+  }
+
   /** Makes every remaining target harder or easier, in steps such as +0.05. */
   adjustIntensity(delta: number): void {
     const next = Math.round((this.intensity + delta) * 100) / 100

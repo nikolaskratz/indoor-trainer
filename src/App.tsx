@@ -1,5 +1,6 @@
 import { SIM } from './ble/devices.ts'
 import { StravaNotice } from './components/StravaBits.tsx'
+import { SyncBadge } from './components/SyncBits.tsx'
 import { href, useRoute } from './lib/router.ts'
 import { HardwareCheck } from './pages/HardwareCheck.tsx'
 import { HistoryPage } from './pages/HistoryPage.tsx'
@@ -63,11 +64,14 @@ export default function App() {
             </a>
           )
         })}
-        {SIM && (
-          <span className="ml-auto rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">
-            Simulated devices: no real Bluetooth is used
-          </span>
-        )}
+        <span className="ml-auto flex flex-wrap items-center gap-3">
+          <SyncBadge />
+          {SIM && (
+            <span className="rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">
+              Simulated devices: no real Bluetooth is used
+            </span>
+          )}
+        </span>
       </nav>
       <StravaNotice />
       <main>

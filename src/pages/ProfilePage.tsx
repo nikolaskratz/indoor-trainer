@@ -1,6 +1,9 @@
 import { StravaCard } from '../components/StravaBits.tsx'
+import { SyncCard } from '../components/SyncBits.tsx'
 import { Card } from '../components/ui.tsx'
+import { RAMP_TEST_ID } from '../domain/ftpTest.ts'
 import { powerZoneTable } from '../domain/zones.ts'
+import { href } from '../lib/router.ts'
 import { profileStore, settingsStore, type ProfileForm } from '../lib/storage.ts'
 import { useStore } from '../lib/store.ts'
 
@@ -52,7 +55,13 @@ export function ProfilePage() {
             )
           })}
         </div>
-        <p className="mt-4 text-xs text-stone-500">Saved in this browser as you type.</p>
+        <p className="mt-4 text-xs text-stone-500">
+          Saved as you type. Not sure about your FTP? Enter a rough guess and ride the{' '}
+          <a href={href(`workout/${RAMP_TEST_ID}`)} className="text-teal-700 underline dark:text-teal-400">
+            FTP test
+          </a>
+          .
+        </p>
       </Card>
 
       {profile.ftp && (
@@ -74,6 +83,8 @@ export function ProfilePage() {
           </table>
         </Card>
       )}
+
+      <SyncCard />
 
       <StravaCard />
 

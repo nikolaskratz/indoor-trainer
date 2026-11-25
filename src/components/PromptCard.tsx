@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { generateWorkout, sessionStore, signIn, signOut } from '../lib/cloud.ts'
 import { href, navigate } from '../lib/router.ts'
-import { profileStore, riderProfile, workoutStore } from '../lib/storage.ts'
+import { profileStore, riderProfile, saveWorkout } from '../lib/storage.ts'
 import { useStore } from '../lib/store.ts'
 import { Button, Card } from './ui.tsx'
 
@@ -77,7 +77,7 @@ export function PromptCard() {
     setError(null)
     try {
       const workout = await generateWorkout(prompt.trim(), profile)
-      workoutStore.set((list) => [workout, ...list])
+      saveWorkout(workout)
       setPrompt('')
       navigate(`workout/${workout.id}`)
     } catch (e) {

@@ -1,3 +1,4 @@
+import { rampTestWorkout } from './ftpTest.ts'
 import type { Block, Step, StepKind, Workout } from './workout.ts'
 
 const step = (kind: StepKind, minutes: number, power: number, extra: Partial<Step> = {}): Step => ({
@@ -52,4 +53,5 @@ export const BUILTIN_WORKOUTS: Workout[] = [
     repeat(3, [step('work', 12, 0.9, { label: 'Sweet spot' }), step('recovery', 4, 0.55)]),
     step('cooldown', 6, 0.55, { powerEnd: 0.4 }),
   ]),
+  rampTestWorkout(),
 ]

@@ -4,11 +4,12 @@ import { DevicesPanel } from '../components/DevicesPanel.tsx'
 import { Button, Card } from '../components/ui.tsx'
 import { WorkoutGraph } from '../components/WorkoutGraph.tsx'
 import { BUILTIN_WORKOUTS } from '../domain/builtin.ts'
+import { RAMP_TYPICAL_MINUTES } from '../domain/ftpTest.ts'
 import { flatten, formatDuration, workoutStats, type Block, type Workout } from '../domain/workout.ts'
 import { powerZone } from '../domain/zones.ts'
 import { activeRide, prepareRide } from '../lib/activeRide.ts'
 import { href, navigate } from '../lib/router.ts'
-import { profileStore, riderProfile, workoutStore } from '../lib/storage.ts'
+import { profileStore, removeWorkout, riderProfile, workoutStore } from '../lib/storage.ts'
 import { useStore } from '../lib/store.ts'
 
 export function findWorkout(id: string, saved: Workout[]): Workout | undefined {
@@ -96,23 +97,42 @@ export function WorkoutPage({ id }: { id: string }) {
         )}
       </div>
 
-      <Card>
-        <WorkoutGraph segments={segments} />
-        <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
-          {[
-            ['Duration', formatDuration(stats.durationS)],
-            ['Intensity (IF)', stats.intensityFactor.toFixed(2)],
-            ['Training stress (TSS)', String(Math.round(stats.tss))],
-            ['Average target', ftp ? `${Math.round(stats.avgPower * ftp)} W` : pct(stats.avgPower)],
-            ['Work', ftp ? `${Math.round(stats.workPerFtpKJ * ftp)} kJ` : 'needs FTP'],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-xs text-stone-500">{label}</dt>
-              <dd className="text-lg font-semibold tabular-nums">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </Card>
+      {workout.test === 'ramp' ? (
+        <Card>
+          <WorkoutGraph segments={segments} />
+          <ul className="mt-4 max-w-3xl list-disc space-y-1 pl-5 text-sm text-stone-700 dark:text-stone-300">
+            <li>
+              The plan runs far past what anyone can ride. You stop when you cannot hold the target any more, press
+              "Done: cool down", and spin easy for a few minutes. Most riders need {RAMP_TYPICAL_MINUTES} minutes in all.
+            </li>
+            <li>
+              Targets are scaled to the FTP in your profile{ftp ? ` (${ftp} W)` : ''}: it starts at{' '}
+              {ftp ? `${Math.round(0.46 * ftp)} W` : '46 %'} and rises by {ftp ? `${Math.round(0.06 * ftp)} W` : '6 %'} every minute. A
+              rough FTP is enough to start.
+            </li>
+            <li>Stay seated and keep a steady cadence. Ride it fresh: no hard session the day before.</li>
+            <li>Afterwards the ride summary shows your estimated FTP (75 % of your best minute) and lets you take it over.</li>
+          </ul>
+        </Card>
+      ) : (
+        <Card>
+          <WorkoutGraph segments={segments} />
+          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
+            {[
+              ['Duration', formatDuration(stats.durationS)],
+              ['Intensity (IF)', stats.intensityFactor.toFixed(2)],
+              ['Training stress (TSS)', String(Math.round(stats.tss))],
+              ['Average target', ftp ? `${Math.round(stats.avgPower * ftp)} W` : pct(stats.avgPower)],
+              ['Work', ftp ? `${Math.round(stats.workPerFtpKJ * ftp)} kJ` : 'needs FTP'],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-xs text-stone-500">{label}</dt>
+                <dd className="text-lg font-semibold tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      )}
 
       <DevicesPanel />
 
@@ -144,18 +164,20 @@ export function WorkoutPage({ id }: { id: string }) {
         )}
       </div>
 
-      <ChangeCard key={workout.id} workout={workout} />
+      {!workout.test && <ChangeCard key={workout.id} workout={workout} />}
 
-      <Card title="Steps">
-        <Steps blocks={workout.blocks} ftp={ftp} />
-      </Card>
+      {!workout.test && (
+        <Card title="Steps">
+          <Steps blocks={workout.blocks} ftp={ftp} />
+        </Card>
+      )}
 
       {workout.source === 'prompt' && (
         <div>
           <Button
             kind="quiet"
             onClick={() => {
-              workoutStore.set((list) => list.filter((w) => w.id !== workout.id))
+              removeWorkout(workout.id)
               navigate('')
             }}
           >

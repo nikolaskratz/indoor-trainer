@@ -1,7 +1,9 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { connection } from '../ble/devices.ts'
+import { FloatingRide, useFloatingWindow } from '../components/FloatingWindow.tsx'
 import { Button, Card, StatusDot } from '../components/ui.tsx'
 import { WorkoutGraph } from '../components/WorkoutGraph.tsx'
+import { rampCooldownIndex } from '../domain/ftpTest.ts'
 import type { RideSession, RideView } from '../domain/ride.ts'
 import { formatDuration, powerAt, type Segment } from '../domain/workout.ts'
 import { hrZone, powerZone } from '../domain/zones.ts'
@@ -69,7 +71,11 @@ function Ride({ session }: { session: RideSession }) {
   const view = useSyncExternalStore(session.subscribe, session.getView)
   const { trainer, hr } = useStore(connection)
   const [confirmEnd, setConfirmEnd] = useState(false)
+  const floating = useFloatingWindow()
   const { ftp, maxHr, thresholdHr } = session.profile
+  // The FTP test has no fixed end: the rider stops the ramp and goes to the cool-down.
+  const rampTest = session.workout.test === 'ramp'
+  const cooldownIndex = rampTest ? rampCooldownIndex(session.workout) : -1
   const segment = view.segment
   const running = view.status === 'running'
   const paused = view.status === 'paused' || view.status === 'autopaused'
@@ -141,6 +147,13 @@ function Ride({ session }: { session: RideSession }) {
         </span>
       </div>
 
+      {rampTest && view.status !== 'finished' && (view.segment?.index ?? 0) < cooldownIndex && (
+        <p className="rounded-lg border border-teal-600 bg-teal-50 p-3 text-sm text-teal-950 dark:bg-teal-950 dark:text-teal-100">
+          FTP test: the target rises every minute. Stay seated, keep your cadence steady, and ride until you cannot hold
+          the target any more. Then press "Done: cool down". How long you last decides the result, not the plan.
+        </p>
+      )}
+
       {trainer.status === 'connected' && trainer.targetAccepted === false && (
         <p className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
           The trainer rejected the last target. Check that no other app is connected to it.
@@ -181,7 +194,10 @@ function Ride({ session }: { session: RideSession }) {
         <Small label="Speed" value={`${view.speedKph.toFixed(1)} km/h`} />
         <Small label="Distance" value={`${(view.distanceM / 1000).toFixed(2)} km`} testId="ride-distance" />
         <Small label="Elapsed" value={formatDuration(view.activeS)} testId="ride-elapsed" />
-        <Small label="Remaining" value={formatDuration(view.totalS - view.positionS)} />
+        <Small
+          label="Remaining"
+          value={rampTest && (view.segment?.index ?? 0) < cooldownIndex ? 'open' : formatDuration(view.totalS - view.positionS)}
+        />
         <Small label="Avg power" value={view.avgPowerW === null ? '–' : `${view.avgPowerW} W`} />
         <Small label="Work" value={`${Math.round(view.workKJ)} kJ`} />
       </div>
@@ -221,9 +237,19 @@ function Ride({ session }: { session: RideSession }) {
             Resume
           </Button>
         )}
-        {view.status !== 'ready' && (
+        {view.status !== 'ready' && rampTest && (view.segment?.index ?? 0) < cooldownIndex && (
+          <Button onClick={() => session.jumpTo(cooldownIndex)} size="lg">
+            Done: cool down
+          </Button>
+        )}
+        {view.status !== 'ready' && !rampTest && (
           <Button onClick={() => session.skip()} kind="quiet" size="lg">
             Skip step
+          </Button>
+        )}
+        {floating.supported && (
+          <Button onClick={() => (floating.win ? floating.close() : void floating.open())} kind="quiet" size="lg">
+            {floating.win ? 'Close floating window' : 'Floating window'}
           </Button>
         )}
         <span className="flex items-center gap-2">
@@ -267,7 +293,10 @@ function Ride({ session }: { session: RideSession }) {
       </div>
       <p className="text-xs text-stone-500">
         Keys: space pauses and resumes, arrow up and down change the intensity. Keep this tab open while riding.
+        {floating.supported &&
+          ' The floating window stays on top of other windows and apps, so you can watch something else while you ride.'}
       </p>
+      <FloatingRide win={floating.win} session={session} />
     </div>
   )
 }

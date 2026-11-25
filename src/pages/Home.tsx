@@ -21,7 +21,9 @@ function WorkoutCard({ workout }: { workout: Workout }) {
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="font-semibold">{workout.name}</h3>
         <span className="shrink-0 text-xs tabular-nums text-stone-500">
-          {formatDuration(stats.durationS)} · IF {stats.intensityFactor.toFixed(2)} · TSS {Math.round(stats.tss)}
+          {workout.test
+            ? 'until you stop · about 30 min'
+            : `${formatDuration(stats.durationS)} · IF ${stats.intensityFactor.toFixed(2)} · TSS ${Math.round(stats.tss)}`}
         </span>
       </div>
       <p className="mt-1 text-sm text-stone-600 dark:text-stone-400">{workout.description}</p>

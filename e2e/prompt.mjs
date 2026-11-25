@@ -2,7 +2,7 @@
 // sign in, send a prompt, land on the generated workout, change it with a second prompt,
 // undo, change a built-in workout (saved as a copy), see them in the list, delete.
 // The real server function is not called.
-import { check, withApp } from './lib.mjs'
+import { check, mockCloud, withApp } from './lib.mjs'
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
 const exp = Math.floor(Date.now() / 1000) + 3600
@@ -44,6 +44,8 @@ await withApp(4181, async ({ page, base, errors }) => {
   const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' }
   let calls = 0
   let sentBody = null
+  // Signing in also starts the account sync; keep it away from the real server.
+  const db = await mockCloud(page)
   await page.route('**/auth/v1/token**', (route) =>
     route.request().method() === 'OPTIONS'
       ? route.fulfill({ status: 204, headers: cors })
@@ -154,4 +156,5 @@ await withApp(4181, async ({ page, base, errors }) => {
   await page.getByRole('button', { name: 'Delete this workout' }).click()
   await page.getByRole('link', { name: /Quick check/ }).waitFor()
   check((await page.getByRole('link', { name: /Mock 2 x 3/ }).count()) === 0, 'the deleted workout is still listed')
+  check(db.problems.length === 0, `unexpected database calls: ${db.problems.join(' | ')}`)
 })

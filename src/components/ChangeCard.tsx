@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { flatten, formatDuration, totalDuration, type Workout } from '../domain/workout.ts'
 import { reviseWorkout, sessionStore } from '../lib/cloud.ts'
 import { href, navigate } from '../lib/router.ts'
-import { profileStore, riderProfile, workoutStore } from '../lib/storage.ts'
+import { profileStore, riderProfile, saveWorkout } from '../lib/storage.ts'
 import { useStore } from '../lib/store.ts'
 import { Button, Card } from './ui.tsx'
 
@@ -39,13 +39,12 @@ export function ChangeCard({ workout }: { workout: Workout }) {
     setError(null)
     try {
       const revised = await reviseWorkout(workout, change, profile)
+      saveWorkout(revised)
       if (revised.id === workout.id) {
-        workoutStore.set((list) => list.map((w) => (w.id === revised.id ? revised : w)))
         setPrevious(workout)
         setText('')
-      } else {
-        workoutStore.set((list) => [revised, ...list])
-        if (mounted.current) navigate(`workout/${revised.id}`)
+      } else if (mounted.current) {
+        navigate(`workout/${revised.id}`)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -56,7 +55,7 @@ export function ChangeCard({ workout }: { workout: Workout }) {
 
   const undo = () => {
     if (!previous) return
-    workoutStore.set((list) => list.map((w) => (w.id === previous.id ? previous : w)))
+    saveWorkout(previous)
     setPrevious(null)
   }
 

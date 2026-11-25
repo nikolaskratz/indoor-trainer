@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { FtpTestResult } from '../components/FtpTestResult.tsx'
 import { Button, Card } from '../components/ui.tsx'
 import { WorkoutGraph } from '../components/WorkoutGraph.tsx'
 import { StravaUpload } from '../components/StravaBits.tsx'
@@ -74,6 +75,7 @@ export function SummaryPage({ id }: { id: string }) {
           {new Date(ride.startTs).toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' })}
         </p>
       </div>
+      {ride.workout.test === 'ramp' && <FtpTestResult ride={ride} />}
       <Card>
         <WorkoutGraph
           segments={flatten(ride.workout.blocks)}

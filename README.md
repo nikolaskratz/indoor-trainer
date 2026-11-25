@@ -12,7 +12,15 @@ Live: https://nikolaskratz.github.io/indoor-trainer/
   progress; pause, skip, intensity adjustment, auto-pause, beeps.
 - Trainer control over FTMS, with automatic reconnect; heart rate strap.
 - Recording once a second, distance from a power-based speed model on a flat road.
-- Ride summary, history and TCX file download. Everything is stored in the browser.
+- Ride summary, history and TCX file download.
+- Floating window during a ride (Chrome's Document Picture-in-Picture): a small always-on-top
+  window with power, target, step time and heart rate.
+- FTP test: a ramp test among the built-in workouts; the summary estimates FTP as 75 % of the
+  best minute and can write it to the profile.
+- Storage: everything lives in the browser (localStorage, IndexedDB) and the app works from
+  that copy. When signed in, `src/lib/sync.ts` mirrors profile, workouts and rides to the
+  tables `turbo_profile`, `turbo_workouts` and `turbo_rides` (see `supabase/migrations`); per
+  item the side that changed it last wins, deletions are kept as markers.
 - Hardware check page (`#/check`) to verify trainer and strap.
 
 - Workouts from a description ("45 min easy Z2 with some variations"): sign in with the Tri Coach
@@ -26,8 +34,6 @@ Live: https://nikolaskratz.github.io/indoor-trainer/
   ride. Server side: edge function `supabase/functions/turbo-strava` plus the table in
   `supabase/migrations`; needs the secrets `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET`.
 
-Not built yet: cloud storage of rides and workouts.
-
 ## Development
 
 - `npm run dev`, then open the printed URL in Chrome (Web Bluetooth needs Chrome or Edge).
@@ -35,7 +41,8 @@ Not built yet: cloud storage of rides and workouts.
   (for example `/?sim=1#/`). `&speed=20` runs the ride clock 20 times faster.
 - `npm test` runs the unit tests.
 - `npm run build && npm i --no-save playwright-core && npm run e2e` runs the hardware check and
-  a full simulated ride, and the prompt and Strava flows (backend mocked) in Google Chrome.
+  a full simulated ride, the prompt and Strava flows, account sync between two browsers (backend
+  mocked), and the FTP test with the floating window, in Google Chrome.
 
 Layout: `src/ble` Bluetooth (FTMS, heart rate, simulated devices), `src/domain` workout model,
 ride session, metrics and TCX export (no browser code), `src/lib` storage and glue,

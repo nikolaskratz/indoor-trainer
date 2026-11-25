@@ -1,7 +1,7 @@
 // End-to-end check of the Strava flow with Strava and the backend mocked:
 // ride, connect (redirect to Strava and back), upload, link to the activity, disconnect.
 // Nothing is sent to the real Strava or the real server function.
-import { check, withApp } from './lib.mjs'
+import { check, mockCloud, withApp } from './lib.mjs'
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
 const exp = Math.floor(Date.now() / 1000) + 3600
@@ -13,6 +13,8 @@ await withApp(4182, async ({ page, base }) => {
   const reply = (route, body, status = 200) =>
     route.fulfill({ status, headers: cors, contentType: 'application/json', body: JSON.stringify(body) })
   const strava = { connected: false, uploads: [], checks: 0, exchangedCode: null, authorizeUrl: null }
+  // Signing in also starts the account sync; keep it away from the real server.
+  const db = await mockCloud(page)
 
   await page.route('**/auth/v1/**', (route) => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
@@ -117,4 +119,5 @@ await withApp(4182, async ({ page, base }) => {
   await page.getByText('Connected as Test Rider').waitFor()
   await page.getByRole('button', { name: 'Disconnect' }).click()
   await page.getByRole('button', { name: 'Connect Strava' }).waitFor()
+  check(db.problems.length === 0, `unexpected database calls: ${db.problems.join(' | ')}`)
 })

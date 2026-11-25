@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react'
 import { Card } from '../components/ui.tsx'
 import { formatDuration } from '../domain/workout.ts'
 import { href } from '../lib/router.ts'
-import { listRides, type SavedRide } from '../lib/storage.ts'
+import { listRides, ridesVersion, type SavedRide } from '../lib/storage.ts'
+import { useStore } from '../lib/store.ts'
 
 export function HistoryPage() {
   const [rides, setRides] = useState<SavedRide[] | null>(null)
   const [failed, setFailed] = useState(false)
+  // Reload when rides arrive from the account or are deleted.
+  const version = useStore(ridesVersion)
 
   useEffect(() => {
     let cancelled = false
@@ -16,7 +19,7 @@ export function HistoryPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [version])
 
   return (
     <div className="space-y-4">
@@ -26,7 +29,7 @@ export function HistoryPage() {
       {rides?.length === 0 && (
         <Card>
           <p className="text-sm text-stone-600 dark:text-stone-400">
-            No rides yet. Rides are stored in this browser on this Mac.
+            No rides yet. Finished rides are listed here.
           </p>
         </Card>
       )}
