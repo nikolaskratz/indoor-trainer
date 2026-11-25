@@ -1,4 +1,5 @@
 import { SIM } from './ble/devices.ts'
+import { StravaNotice } from './components/StravaBits.tsx'
 import { href, useRoute } from './lib/router.ts'
 import { HardwareCheck } from './pages/HardwareCheck.tsx'
 import { HistoryPage } from './pages/HistoryPage.tsx'
@@ -68,6 +69,7 @@ export default function App() {
           </span>
         )}
       </nav>
+      <StravaNotice />
       <main>
         <Page route={route} />
       </main>

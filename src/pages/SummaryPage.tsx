@@ -1,20 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Button, Card } from '../components/ui.tsx'
 import { WorkoutGraph } from '../components/WorkoutGraph.tsx'
-import { buildTcx, rideFileName } from '../domain/tcx.ts'
+import { StravaUpload } from '../components/StravaBits.tsx'
+import { rideFileName } from '../domain/tcx.ts'
 import { flatten, formatDuration } from '../domain/workout.ts'
 import { href, navigate } from '../lib/router.ts'
 import { deleteRide, loadRide, type SavedRide } from '../lib/storage.ts'
+import { rideTcx } from '../lib/strava.ts'
 
 export function downloadTcx(ride: SavedRide): void {
-  const tcx = buildTcx({
-    name: ride.workout.name,
-    notes: `${ride.workout.name}. ${ride.workout.description}`,
-    startTs: ride.startTs,
-    samples: ride.samples,
-    segments: flatten(ride.workout.blocks),
-  })
-  const url = URL.createObjectURL(new Blob([tcx], { type: 'application/vnd.garmin.tcx+xml' }))
+  const url = URL.createObjectURL(new Blob([rideTcx(ride)], { type: 'application/vnd.garmin.tcx+xml' }))
   const a = document.createElement('a')
   a.href = url
   a.download = rideFileName(ride.workout.name, ride.startTs)
@@ -101,10 +96,10 @@ export function SummaryPage({ id }: { id: string }) {
         </dl>
       </Card>
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => downloadTcx(ride)}>Download ride file (TCX)</Button>
-        <span className="text-sm text-stone-600 dark:text-stone-400">
-          Upload to Strava from the app is not built yet; the file can be uploaded on strava.com by hand.
-        </span>
+        <StravaUpload ride={ride} onUploaded={(stravaActivityId) => setRide({ ...ride, stravaActivityId })} />
+        <Button kind="quiet" onClick={() => downloadTcx(ride)}>
+          Download ride file (TCX)
+        </Button>
         <span className="ml-auto flex gap-2">
           {confirmDelete ? (
             <>

@@ -19,7 +19,11 @@ Live: https://nikolaskratz.github.io/indoor-trainer/
   account; the Supabase edge function `supabase/functions/turbo-workout` asks Claude for a
   structured workout. The function must be deployed to the Supabase project once.
 
-Not built yet: Strava upload, cloud storage of rides and workouts.
+- Strava: connect once (profile page), then upload a finished ride from its summary as a virtual
+  ride. Server side: edge function `supabase/functions/turbo-strava` plus the table in
+  `supabase/migrations`; needs the secrets `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET`.
+
+Not built yet: cloud storage of rides and workouts.
 
 ## Development
 
@@ -28,7 +32,7 @@ Not built yet: Strava upload, cloud storage of rides and workouts.
   (for example `/?sim=1#/`). `&speed=20` runs the ride clock 20 times faster.
 - `npm test` runs the unit tests.
 - `npm run build && npm i --no-save playwright-core && npm run e2e` runs the hardware check and
-  a full simulated ride and the prompt flow (backend mocked) in Google Chrome.
+  a full simulated ride, and the prompt and Strava flows (backend mocked) in Google Chrome.
 
 Layout: `src/ble` Bluetooth (FTMS, heart rate, simulated devices), `src/domain` workout model,
 ride session, metrics and TCX export (no browser code), `src/lib` storage and glue,

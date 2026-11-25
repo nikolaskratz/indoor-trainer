@@ -47,6 +47,12 @@ await withApp(4181, async ({ page, base, errors }) => {
         }),
   )
   await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204, headers: cors }))
+  // Strava is asked for its status after sign-in; keep that away from the real server too.
+  await page.route('**/functions/v1/turbo-strava', (route) =>
+    route.request().method() === 'OPTIONS'
+      ? route.fulfill({ status: 204, headers: cors })
+      : route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ configured: false, connected: false }) }),
+  )
   await page.route('**/functions/v1/turbo-workout', (route) => {
     if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
     calls++

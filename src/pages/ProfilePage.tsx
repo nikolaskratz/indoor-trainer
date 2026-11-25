@@ -1,3 +1,4 @@
+import { StravaCard } from '../components/StravaBits.tsx'
 import { Card } from '../components/ui.tsx'
 import { powerZoneTable } from '../domain/zones.ts'
 import { profileStore, settingsStore, type ProfileForm } from '../lib/storage.ts'
@@ -73,6 +74,8 @@ export function ProfilePage() {
           </table>
         </Card>
       )}
+
+      <StravaCard />
 
       <Card title="Ride settings">
         <div className="space-y-3 text-sm">
